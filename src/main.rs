@@ -87,6 +87,63 @@ struct App {
     input_text: String,
     filter: Option<String>,
     can_show_details: bool,
+    category_selection: Option<usize>,
+    available_categories: Vec<CategoryType>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum CategoryType {
+    Groceries,
+    Utilities,
+    Transportation,
+    Childcare,
+    Entertainment,
+    Government,
+    InternalTransfer,
+    Shopping,
+    Dining,
+    Healthcare,
+    Education,
+    Travel,
+    Uncategorized,
+}
+
+impl CategoryType {
+    fn as_str(&self) -> &'static str {
+        match self {
+            CategoryType::Groceries => "Groceries",
+            CategoryType::Utilities => "Utilities",
+            CategoryType::Transportation => "Transportation",
+            CategoryType::Childcare => "Childcare",
+            CategoryType::Entertainment => "Entertainment",
+            CategoryType::Government => "Government",
+            CategoryType::InternalTransfer => "Internal Transfer",
+            CategoryType::Shopping => "Shopping",
+            CategoryType::Dining => "Dining",
+            CategoryType::Healthcare => "Healthcare",
+            CategoryType::Education => "Education",
+            CategoryType::Travel => "Travel",
+            CategoryType::Uncategorized => "Uncategorized",
+        }
+    }
+
+    fn all() -> Vec<CategoryType> {
+        vec![
+            CategoryType::Groceries,
+            CategoryType::Utilities,
+            CategoryType::Transportation,
+            CategoryType::Childcare,
+            CategoryType::Entertainment,
+            CategoryType::Government,
+            CategoryType::InternalTransfer,
+            CategoryType::Shopping,
+            CategoryType::Dining,
+            CategoryType::Healthcare,
+            CategoryType::Education,
+            CategoryType::Travel,
+            CategoryType::Uncategorized,
+        ]
+    }
 }
 
 impl Category {
@@ -167,6 +224,8 @@ impl App {
             input_text: String::new(),
             filter: None,
             can_show_details: false,
+            category_selection: None,
+            available_categories: CategoryType::all(),
         };
 
         // Apply initial categorization
@@ -294,11 +353,15 @@ impl App {
             InputMode::Categorizing => {
                 if let Some(idx) = self.selected_transaction {
                     if let Some(transaction) = self.transactions.get_mut(idx) {
-                        if !self.input_text.is_empty() {
-                            transaction.category = Some(self.input_text.clone());
+                        if let Some(cat_idx) = self.category_selection {
+                            if let Some(category) = self.available_categories.get(cat_idx) {
+                                transaction.category = Some(category.as_str().to_string());
+                                self.update_category_totals();
+                            }
                         }
                     }
                 }
+                self.category_selection = None;
             }
             InputMode::Normal => {}
         }
@@ -331,6 +394,57 @@ impl App {
         if !self.transactions.is_empty() {
             self.list_state.select(Some(0));
         }
+    }
+
+    fn handle_category_selection(&mut self, key: KeyCode) {
+        match key {
+            KeyCode::Up => {
+                if let Some(current) = self.category_selection {
+                    self.category_selection = Some(if current == 0 {
+                        self.available_categories.len() - 1
+                    } else {
+                        current - 1
+                    });
+                }
+            }
+            KeyCode::Down => {
+                if let Some(current) = self.category_selection {
+                    self.category_selection = Some(if current >= self.available_categories.len() - 1 {
+                        0
+                    } else {
+                        current + 1
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn render_category_selection(&self, f: &mut Frame, area: Rect) {
+        let items: Vec<ListItem> = self.available_categories
+            .iter()
+            .enumerate()
+            .map(|(i, category)| {
+                let style = if Some(i) == self.category_selection {
+                    Style::default().fg(Color::Yellow).add_modifier(Modifier::REVERSED)
+                } else {
+                    Style::default()
+                };
+                ListItem::new(Line::from(vec![
+                    Span::styled(category.as_str(), style)
+                ]))
+            })
+            .collect();
+
+        let list = List::new(items)
+            .block(Block::default()
+                .title("Select Category (↑↓ to move, Enter to confirm, Esc to cancel)")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow)));
+
+        let popup_area = centered_rect(40, 60, area);
+        f.render_widget(Clear, popup_area);
+        f.render_widget(list, popup_area);
     }
 }
 
@@ -603,6 +717,34 @@ fn render_help_panel(f: &mut Frame, area: Rect) {
     f.render_widget(help, area);
 }
 
+fn render_category_selection(f: &mut Frame, app: &App, area: Rect) {
+    let items: Vec<ListItem> = app.available_categories
+        .iter()
+        .enumerate()
+        .map(|(i, category)| {
+            let style = if Some(i) == app.category_selection {
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::REVERSED)
+            } else {
+                Style::default()
+            };
+            ListItem::new(Line::from(vec![
+                Span::styled(category.as_str(), style)
+            ]))
+        })
+        .collect();
+
+    let list = List::new(items)
+        .block(Block::default()
+            .title("Select Category (↑↓ to move, Enter to confirm, Esc to cancel)")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Yellow)))
+        .highlight_style(Style::default().add_modifier(Modifier::REVERSED));
+
+    let popup_area = centered_rect(40, 60, area);
+    f.render_widget(Clear, popup_area);
+    f.render_widget(list, popup_area);
+}
+
 fn run_app(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     mut app: App,
@@ -639,58 +781,79 @@ fn run_app(
             if app.input_mode != InputMode::Normal {
                 render_input_prompt(f, &app, size);
             }
+
+            // Render category selection if in categorizing mode
+            if app.input_mode == InputMode::Categorizing {
+                render_category_selection(f, &app, size);
+            }
         })?;
 
         if let Event::Key(key) = event::read()? {
             if key.kind == KeyEventKind::Press {
                 match app.input_mode {
-                    InputMode::Normal => match key.code {
-                        KeyCode::Char('q') => return Ok(()),
-                        KeyCode::Tab => {
-                            app.current_view = match app.current_view {
-                                View::TransactionList => View::CategorySummary,
-                                View::CategorySummary => View::TransactionList,
-                                View::TransactionDetail => View::TransactionList,
-                                View::CategoryDetail => View::CategorySummary,
-                            };
-                        }
-                        KeyCode::Char('d') => {
-                            if let View::TransactionList = app.current_view {
-                                app.current_view = if matches!(app.current_view, View::TransactionDetail) {
-                                    View::TransactionList
-                                } else {
-                                    View::TransactionDetail
+                    InputMode::Normal => {
+                        match key.code {
+                            KeyCode::Char('q') => return Ok(()),
+                            KeyCode::Char('c') => {
+                                if app.selected_transaction.is_some() {
+                                    app.input_mode = InputMode::Categorizing;
+                                    app.category_selection = Some(0); // Initialize selection to first category
+                                }
+                            }
+                            KeyCode::Tab => {
+                                app.current_view = match app.current_view {
+                                    View::TransactionList => View::CategorySummary,
+                                    View::CategorySummary => View::TransactionList,
+                                    View::TransactionDetail => View::TransactionList,
+                                    View::CategoryDetail => View::CategorySummary,
                                 };
                             }
-                        },
-                        KeyCode::Esc => {
-                            if let View::TransactionDetail = app.current_view {
-                                app.current_view = View::TransactionList;
+                            KeyCode::Char('d') => {
+                                if let View::TransactionList = app.current_view {
+                                    app.current_view = if matches!(app.current_view, View::TransactionDetail) {
+                                        View::TransactionList
+                                    } else {
+                                        View::TransactionDetail
+                                    };
+                                }
                             }
-                        }
-                        KeyCode::Up => app.previous(),
-                        KeyCode::Down => app.next(),
-                        KeyCode::Char('s') => app.toggle_sort_order(),
-                        KeyCode::Char('f') => {
-                            app.input_mode = InputMode::Filtering;
-                        }
-                        KeyCode::Char('c') => {
-                            if app.selected_transaction.is_some() {
-                                app.input_mode = InputMode::Categorizing;
+                            KeyCode::Esc => {
+                                if let View::TransactionDetail = app.current_view {
+                                    app.current_view = View::TransactionList;
+                                }
                             }
+                            KeyCode::Up => app.previous(),
+                            KeyCode::Down => app.next(),
+                            KeyCode::Char('s') => app.toggle_sort_order(),
+                            KeyCode::Char('f') => {
+                                app.input_mode = InputMode::Filtering;
+                            }
+                            _ => {}
                         }
-                        _ => {}
-                    },
-                    InputMode::Filtering | InputMode::Categorizing => match key.code {
-                        KeyCode::Enter => app.submit_input(),
-                        KeyCode::Esc => {
-                            app.input_text.clear();
-                            app.input_mode = InputMode::Normal;
+                    }
+                    InputMode::Categorizing => {
+                        match key.code {
+                            KeyCode::Enter => app.submit_input(),
+                            KeyCode::Esc => {
+                                app.input_mode = InputMode::Normal;
+                                app.category_selection = None;
+                            }
+                            KeyCode::Up | KeyCode::Down => app.handle_category_selection(key.code),
+                            _ => {}
                         }
-                        KeyCode::Backspace => app.handle_backspace(),
-                        KeyCode::Char(c) => app.handle_input(c),
-                        _ => {}
-                    },
+                    }
+                    InputMode::Filtering => {
+                        match key.code {
+                            KeyCode::Enter => app.submit_input(),
+                            KeyCode::Esc => {
+                                app.input_text.clear();
+                                app.input_mode = InputMode::Normal;
+                            }
+                            KeyCode::Backspace => app.handle_backspace(),
+                            KeyCode::Char(c) => app.handle_input(c),
+                            _ => {}
+                        }
+                    }
                 }
             }
         }
