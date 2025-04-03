@@ -57,45 +57,16 @@ pub fn render_popup(f: &mut Frame, app: &App, area: Rect) {
             };
 
             vec![
-                Line::from(vec![
-                    Span::raw("Date:       "),
-                    Span::styled(
-                        transaction.date.format("%Y-%m-%d").to_string(),
-                        Style::default().add_modifier(Modifier::BOLD)
-                    ),
-                ]),
-                Line::from(vec![
-                    Span::raw("Amount:     "),
-                    Span::styled(
-                        format!("{:.2}", transaction.amount),
-                        amount_style.add_modifier(Modifier::BOLD)
-                    ),
-                ]),
-                Line::from(vec![
-                    Span::raw("Merchant:   "),
-                    Span::styled(
-                        &transaction.merchant,
-                        Style::default().add_modifier(Modifier::BOLD)
-                    ),
-                ]),
+                Line::from(vec![Span::raw("Date:       "), Span::styled(transaction.date.format("%Y-%m-%d").to_string(), Style::default().add_modifier(Modifier::BOLD))]),
+                Line::from(vec![Span::raw("Amount:     "), Span::styled(format!("{:.2}", transaction.amount), amount_style.add_modifier(Modifier::BOLD))]),
+                Line::from(vec![Span::raw("Merchant:   "), Span::styled(&transaction.merchant, Style::default().add_modifier(Modifier::BOLD))]),
                 Line::from(""),
                 Line::from("Description:"),
                 Line::from(transaction.description.clone()),
                 Line::from(""),
-                Line::from(vec![
-                    Span::raw("Category:   "),
-                    Span::styled(
-                        transaction.category.as_deref().unwrap_or("Uncategorized"),
-                        Style::default().add_modifier(Modifier::BOLD)
-                    ),
-                ]),
+                Line::from(vec![Span::raw("Category:   "), Span::styled(transaction.category.as_deref().unwrap_or("Uncategorized"), Style::default().add_modifier(Modifier::BOLD))]),
                 Line::from(""),
-                Line::from(vec![
-                    Span::styled("Esc", Style::default().fg(Color::Yellow)),
-                    Span::raw(" close • "),
-                    Span::styled("c", Style::default().fg(Color::Yellow)),
-                    Span::raw(" change category"),
-                ]),
+                Line::from(vec![Span::styled("Esc", Style::default().fg(Color::Yellow)), Span::raw(" close • "), Span::styled("c", Style::default().fg(Color::Yellow)), Span::raw(" change category")]),
             ]
         } else {
             vec![Line::from("No transaction selected")]
@@ -128,10 +99,7 @@ pub fn render_category_summary(f: &mut Frame, app: &App, area: Rect) {
                 Style::default().fg(Color::Green)
             };
 
-            (ListItem::new(Line::from(vec![
-                Span::raw(format!("{:<30} ", category)),
-                Span::styled(format!("{:>10.2}", total), amount_style),
-            ])), *total)
+            (ListItem::new(Line::from(vec![Span::raw(format!("{:<30} ", category)), Span::styled(format!("{:>10.2}", total), amount_style),])), *total)
         })
         .collect();
 
@@ -150,26 +118,7 @@ pub fn render_category_summary(f: &mut Frame, app: &App, area: Rect) {
 }
 
 pub fn render_help_panel(f: &mut Frame, area: Rect) {
-    let text = vec![
-        Line::from(vec![
-            Span::styled("↑/↓", Style::default().fg(Color::Yellow)),
-            Span::raw(" Move • "),
-            Span::styled("d", Style::default().fg(Color::Yellow)),
-            Span::raw(" Details • "),
-            Span::styled("Esc", Style::default().fg(Color::Yellow)),
-            Span::raw(" Back • "),
-            Span::styled("Tab", Style::default().fg(Color::Yellow)),
-            Span::raw(" View • "),
-            Span::styled("f", Style::default().fg(Color::Yellow)),
-            Span::raw(" Filter • "),
-            Span::styled("c", Style::default().fg(Color::Yellow)),
-            Span::raw(" Category • "),
-            Span::styled("s", Style::default().fg(Color::Yellow)),
-            Span::raw(" Sort • "),
-            Span::styled("q", Style::default().fg(Color::Yellow)),
-            Span::raw(" Quit"),
-        ]),
-    ];
+    let text = vec![Line::from(vec![Span::styled("↑/↓", Style::default().fg(Color::Yellow)), Span::raw(" Move • "), Span::styled("d", Style::default().fg(Color::Yellow)), Span::raw(" Details • "), Span::styled("Esc", Style::default().fg(Color::Yellow)), Span::raw(" Back • "), Span::styled("Tab", Style::default().fg(Color::Yellow)), Span::raw(" View • "), Span::styled("f", Style::default().fg(Color::Yellow)), Span::raw(" Filter • "), Span::styled("c", Style::default().fg(Color::Yellow)), Span::raw(" Category • "), Span::styled("s", Style::default().fg(Color::Yellow)), Span::raw(" Sort • "), Span::styled("q", Style::default().fg(Color::Yellow)), Span::raw(" Quit"),])];
 
     let help = Paragraph::new(text)
         .block(Block::default()
@@ -191,9 +140,7 @@ pub fn render_category_selection(f: &mut Frame, app: &App, area: Rect) {
             } else {
                 Style::default()
             };
-            ListItem::new(Line::from(vec![
-                Span::styled(category.as_str(), style)
-            ]))
+            ListItem::new(Line::from(vec![Span::styled(category.as_str(), style)]))
         })
         .collect();
 

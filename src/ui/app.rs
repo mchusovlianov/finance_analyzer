@@ -6,6 +6,7 @@ use crate::models::{
     category::{Category, CategoryType},
     transaction::Transaction,
 };
+use crate::db::{connection::DbConnection, category::CategoryDb};
 
 #[derive(Debug)]
 pub enum View {
@@ -53,6 +54,7 @@ pub struct App {
     pub can_show_details: bool,
     pub category_selection: Option<usize>,
     pub available_categories: Vec<CategoryType>,
+    db_connection: DbConnection,
 }
 
 impl App {
@@ -63,11 +65,25 @@ impl App {
             list_state.select(Some(0));
         }
 
-        let categories = Category::default_categories();
+        // Initialize database connection
+        let mut db_connection = DbConnection::new("finance.db")?;
+        let mut category_db = CategoryDb::new(db_connection.get_connection());
+        
+        // Initialize default categories if none exist
+        if category_db.get_all_categories()?.is_empty() {
+            category_db.initialize_default_categories()?;
+        }
+
+        // Get categories from database
+        let categories: HashMap<String, Category> = category_db.get_all_categories()?
+            .into_iter()
+            .map(|c| (c.name.clone(), c))
+            .collect();
+
         let mut app = App {
             transactions,
             filtered_transactions: Vec::new(),
-            categories: categories.into_iter().map(|c| (c.name.clone(), c)).collect(),
+            categories,
             current_view: View::TransactionList,
             selected_transaction: None,
             category_totals: HashMap::new(),
@@ -80,6 +96,7 @@ impl App {
             can_show_details: false,
             category_selection: None,
             available_categories: CategoryType::all(),
+            db_connection,
         };
 
         app.categorize_all_transactions();
@@ -191,9 +208,13 @@ impl App {
                 if let Some(idx) = self.selected_transaction {
                     if let Some(transaction) = self.transactions.get_mut(idx) {
                         if let Some(cat_idx) = self.category_selection {
-                            if let Some(category) = self.available_categories.get(cat_idx) {
-                                transaction.category = Some(category.as_str().to_string());
-                                self.update_category_totals();
+                            if let Some(category_type) = self.available_categories.get(cat_idx) {
+                                let category_name = category_type.as_str();
+                                let mut category_db = CategoryDb::new(self.db_connection.get_connection());
+                                if let Ok(Some(_)) = category_db.get_category_by_name(category_name) {
+                                    transaction.category = Some(category_name.to_string());
+                                    self.update_category_totals();
+                                }
                             }
                         }
                     }
@@ -258,9 +279,15 @@ impl App {
     }
 
     pub fn categorize_all_transactions(&mut self) {
+        let mut category_db = CategoryDb::new(self.db_connection.get_connection());
+        let categories = match category_db.get_all_categories() {
+            Ok(cats) => cats.into_iter().map(|c| (c.name.clone(), c)).collect(),
+            Err(_) => return,
+        };
+
         for transaction in &mut self.transactions {
             let category = Category::categorize_transaction(
-                &self.categories,
+                &categories,
                 &transaction.merchant,
                 &transaction.description
             );
