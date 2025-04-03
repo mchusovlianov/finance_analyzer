@@ -101,4 +101,45 @@ impl Category {
         }
         None
     }
+
+    pub fn default_categories() -> Vec<Category> {
+        vec![
+            Category::new("Groceries", &[
+                ("Albert Heijn", 1),
+                ("Picnic", 1),
+                ("Crisp", 1),
+                ("WILLYS", 1),
+                ("Flink", 1),
+            ]),
+            Category::new("Utilities", &[
+                ("ESSENT", 1),
+                ("ANWB Energie", 1),
+                ("Waternet", 1),
+                ("KPN", 1),
+            ]),
+            Category::new("Transportation", &[
+                ("Uber", 1),
+                ("TLS BV inz. OV-Chipkaart", 1),
+            ]),
+            Category::new("Childcare", &[
+                ("KINDERGARDEN", 1),
+                ("Babysitting", 1),
+            ]),
+            Category::new("Entertainment", &[
+                ("SWESHOP", 1),
+                ("Espresso House", 1),
+                ("Babbel", 1),
+                ("hunkemoller", 1),
+            ]),
+            Category::new("Government", &[
+                ("BELASTINGDIENST", 1),
+                ("Gemeente Amsterdam", 1),
+            ]),
+            Category::new("Internal Transfer", &[
+                ("Oranje Spaarrekening", 1),
+                ("Hr MA Chusovlyanov", 1),
+                ("Mw TI Chusovlyanova", 1),
+            ]),
+        ]
+    }
 }
